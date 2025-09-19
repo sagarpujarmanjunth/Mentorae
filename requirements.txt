@@ -58,3 +58,6 @@ youtube-search-python
 # Tavily AI Search
 tavily-python
 
+# Image Processing
+pytesseract
+pillow

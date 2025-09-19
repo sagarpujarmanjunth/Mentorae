@@ -653,92 +653,139 @@ function sendMessage() {
 
   chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
 
-  // Check if we should show enhanced search results
-  const shouldShowSearchArtifact =
-    !document.querySelector(".status-dot.active"); // Show if no RAG loaded
-
-  if (shouldShowSearchArtifact) {
-    // First, get enhanced search results with timeout handling
-    fetch("/enhanced-search", {
+  // Check if we have image data and should query about the image
+  if (window.currentImageData && window.currentImageAnalysis) {
+    // Send request to backend with image context
+    fetch("/ask-about-image", {
       method: "POST",
-      body: JSON.stringify({ query: userInput, search_type: "educational" }),
+      body: JSON.stringify({ 
+        query: userInput,
+        image_data: window.currentImageData,
+        image_analysis: window.currentImageAnalysis
+      }),
       headers: { "Content-Type": "application/json" },
     })
-      .then((response) => {
-        if (response.status === 408) {
-          // Timeout error
-          throw new Error("TIMEOUT");
-        }
-        return response.json();
-      })
-      .then((searchResponse) => {
-        if (searchResponse.success && searchResponse.search_data) {
-          // Don't display search artifact immediately - just add user message and get AI response
-          chatBox.removeChild(thinkingMessage);
-          chatBox.appendChild(userMessage);
-
-          // Show engine used info
-          if (searchResponse.engine_used) {
-            showToast(
-              `Search powered by ${searchResponse.engine_used}`,
-              "info"
-            );
-          }
-
-          // Add thinking message for AI response
-          let secondThinkingMessage = document.createElement("div");
-          secondThinkingMessage.className = "ai-message";
-          setAIMessageToThinking(secondThinkingMessage);
-          chatBox.appendChild(secondThinkingMessage);
-
-          // Now get AI response
-          return fetch("/ask", {
-            method: "POST",
-            body: JSON.stringify({ query: userInput }),
-            headers: { "Content-Type": "application/json" },
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              chatBox.removeChild(secondThinkingMessage);
-              displayAIResponse(data);
-
-              // After AI response, add the search artifact as reference links
-              setTimeout(() => {
-                addSearchArtifactAsReferences(searchResponse.search_data);
-              }, 1500); // 1.5 second delay to show search results as references
-            });
-        } else {
-          // Handle search failure
-          if (searchResponse.timeout) {
-            showToast(
-              "Search timed out. Switching to backup method...",
-              "warning"
-            );
-            // Try regular flow as fallback
-            return regularMessageFlow(userInput, userMessage, thinkingMessage);
-          } else {
-            showToast("Search failed. Using backup method...", "warning");
-            return regularMessageFlow(userInput, userMessage, thinkingMessage);
-          }
-        }
+      .then((response) => response.json())
+      .then((data) => {
+        // Remove thinking message
+        chatBox.removeChild(thinkingMessage);
+        
+        // Display user message
+        chatBox.appendChild(userMessage);
+        
+        // Display AI response
+        let aiMessage = document.createElement("div");
+        aiMessage.className = "ai-message";
+        aiMessage.innerHTML = `<strong>Mentorae:</strong> ${data.response}`;
+        chatBox.appendChild(aiMessage);
+        
+        chatBox.scrollTop = chatBox.scrollHeight;
       })
       .catch((error) => {
-        console.log("Enhanced search failed:", error);
+        // Remove thinking message
+        chatBox.removeChild(thinkingMessage);
+        
+        // Display user message
+        chatBox.appendChild(userMessage);
+        
+        // Display error message
+        let errorMessage = document.createElement("div");
+        errorMessage.className = "ai-message error";
+        errorMessage.innerHTML = `<strong>Mentorae:</strong> Sorry, I encountered an error processing your request. Please try again.`;
+        chatBox.appendChild(errorMessage);
 
-        if (error.message === "TIMEOUT") {
-          showToast(
-            "Search timed out. Trying alternative method...",
-            "warning"
-          );
-        } else {
-          showToast("Search unavailable. Using fallback...", "info");
-        }
-
-        return regularMessageFlow(userInput, userMessage, thinkingMessage);
+        console.error("Error sending message:", error);
+        chatBox.scrollTop = chatBox.scrollHeight;
       });
   } else {
-    // Regular flow for RAG-enabled queries
-    regularMessageFlow(userInput, userMessage, thinkingMessage);
+    // Regular message flow for non-image queries
+    // Check if we should show enhanced search results
+    const shouldShowSearchArtifact =
+      !document.querySelector(".status-dot.active"); // Show if no RAG loaded
+
+    if (shouldShowSearchArtifact) {
+      // First, get enhanced search results with timeout handling
+      fetch("/enhanced-search", {
+        method: "POST",
+        body: JSON.stringify({ query: userInput, search_type: "educational" }),
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((response) => {
+          if (response.status === 408) {
+            // Timeout error
+            throw new Error("TIMEOUT");
+          }
+          return response.json();
+        })
+        .then((searchResponse) => {
+          if (searchResponse.success && searchResponse.search_data) {
+            // Don't display search artifact immediately - just add user message and get AI response
+            chatBox.removeChild(thinkingMessage);
+            chatBox.appendChild(userMessage);
+
+            // Show engine used info
+            if (searchResponse.engine_used) {
+              showToast(
+                `Search powered by ${searchResponse.engine_used}`,
+                "info"
+              );
+            }
+
+            // Add thinking message for AI response
+            let secondThinkingMessage = document.createElement("div");
+            secondThinkingMessage.className = "ai-message";
+            setAIMessageToThinking(secondThinkingMessage);
+            chatBox.appendChild(secondThinkingMessage);
+
+            // Now get AI response
+            return fetch("/ask", {
+              method: "POST",
+              body: JSON.stringify({ query: userInput }),
+              headers: { "Content-Type": "application/json" },
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                chatBox.removeChild(secondThinkingMessage);
+                displayAIResponse(data);
+
+                // After AI response, add the search artifact as reference links
+                setTimeout(() => {
+                  addSearchArtifactAsReferences(searchResponse.search_data);
+                }, 1500); // 1.5 second delay to show search results as references
+              });
+          } else {
+            // Handle search failure
+            if (searchResponse.timeout) {
+              showToast(
+                "Search timed out. Switching to backup method...",
+                "warning"
+              );
+              // Try regular flow as fallback
+              return regularMessageFlow(userInput, userMessage, thinkingMessage);
+            } else {
+              showToast("Search failed. Using backup method...", "warning");
+              return regularMessageFlow(userInput, userMessage, thinkingMessage);
+            }
+          }
+        })
+        .catch((error) => {
+          console.log("Enhanced search failed:", error);
+
+          if (error.message === "TIMEOUT") {
+            showToast(
+              "Search timed out. Trying alternative method...",
+              "warning"
+            );
+          } else {
+            showToast("Search unavailable. Using fallback...", "info");
+          }
+
+          return regularMessageFlow(userInput, userMessage, thinkingMessage);
+        });
+    } else {
+      // Regular flow for RAG-enabled queries
+      regularMessageFlow(userInput, userMessage, thinkingMessage);
+    }
   }
 
   document.getElementById("user-input").value = ""; // Clear input field
@@ -1288,6 +1335,103 @@ function handleTextareaInput(event) {
   textarea.style.height = "auto";
   const newHeight = Math.min(textarea.scrollHeight, 150); // Max height of 150px
   textarea.style.height = newHeight + "px";
+}
+
+function handleImageUpload(file) {
+  if (!file) return;
+
+  // Display image name in chat
+  const chatBox = document.getElementById("chat-box");
+  const imageNameDisplay = document.createElement("div");
+  imageNameDisplay.className = "file-name-display";
+  imageNameDisplay.innerHTML = `<strong>Mentorae:</strong> Processing image: ${file.name}`;
+  chatBox.appendChild(imageNameDisplay);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  // Display processing message
+  const processingMessage = document.createElement("div");
+  processingMessage.className = "ai-message";
+  processingMessage.innerHTML = `<strong>Mentorae:</strong> Analyzing image content...`;
+  chatBox.appendChild(processingMessage);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  // Show image processing indicator
+  document.getElementById("image-processing-indicator").classList.remove("hidden");
+
+  // Create FormData and send to backend
+  const formData = new FormData();
+  formData.append("image", file);
+  
+  // Get current user input as query context
+  const userQuery = document.getElementById("user-input").value.trim();
+  if (userQuery) {
+    formData.append("query", userQuery);
+  }
+
+  fetch("/process-image", {
+    method: "POST",
+    body: formData,
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      // Hide processing indicator
+      document.getElementById("image-processing-indicator").classList.add("hidden");
+
+      const chatBox = document.getElementById("chat-box");
+      
+      if (data.success) {
+        // Display image analysis
+        const analysisMessage = document.createElement("div");
+        analysisMessage.className = "ai-message";
+        analysisMessage.innerHTML = `<strong>Mentorae:</strong> ${data.analysis}`;
+        chatBox.appendChild(analysisMessage);
+        
+        // If there's extracted text and it's not an error message, show it
+        if (data.image_data.extracted_text && 
+            !data.image_data.extracted_text.includes("OCR failed") && 
+            !data.image_data.extracted_text.includes("tesseract is not installed")) {
+          const textMessage = document.createElement("div");
+          textMessage.className = "ai-message";
+          textMessage.innerHTML = `<strong>Mentorae:</strong> Extracted text from image: "${data.image_data.extracted_text}"`;
+          chatBox.appendChild(textMessage);
+        }
+        
+        // Add a prompt for asking questions about the image
+        const questionPrompt = document.createElement("div");
+        questionPrompt.className = "ai-message";
+        questionPrompt.innerHTML = `<strong>Mentorae:</strong> You can now ask me specific questions about this image. Type your question in the input field below and click "Ask Tutor".`;
+        chatBox.appendChild(questionPrompt);
+        
+        // Store image data for future queries
+        window.currentImageData = data.image_data;
+        window.currentImageAnalysis = data.analysis;
+        
+        showToast("✅ Image processed successfully!", "success");
+      } else {
+        const errorMessage = document.createElement("div");
+        errorMessage.className = "ai-message error";
+        errorMessage.innerHTML = `<strong>Mentorae:</strong> ❌ ${data.message || "Failed to process image"}`;
+        chatBox.appendChild(errorMessage);
+        showToast("❌ Image processing failed", "error");
+      }
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+    })
+    .catch((error) => {
+      // Hide processing indicator
+      document.getElementById("image-processing-indicator").classList.add("hidden");
+
+      console.error("Image processing error:", error);
+
+      const chatBox = document.getElementById("chat-box");
+      const errorMessage = document.createElement("div");
+      errorMessage.className = "ai-message error";
+      errorMessage.innerHTML = `<strong>Mentorae:</strong> ❌ Error processing image. ${error.message || ''}`;
+      chatBox.appendChild(errorMessage);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      showToast("❌ Image processing error", "error");
+    });
 }
 
 // Function to handle Claude-style scraped info toggle
