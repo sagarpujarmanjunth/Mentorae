@@ -91,11 +91,12 @@ def create_shunya_prompt_with_history(session: ChatSession):
                    "exchanges to create a cohesive learning experience. Address knowledge gaps "
                    "compassionately and encourage critical thinking. Adjust your teaching style based on "
                    "the student's responses and questions."
-                   "Incorporate relevant web information when available to provide up-to-date and accurate information."),
+                   "When using information from web sources, include proper citations in the format [1], [2], etc. "
+                   "at the end of relevant sentences. This helps students verify information and learn proper citation practices."),
         *session.get_langchain_messages(),
         ("human",  "User Query: {query}\n\n"
                   "Web Scraped Content: {scraped_content}\n\n"
-                  "Please provide a helpful, educational response.")
+                  "Please provide a helpful, educational response with proper citations.")
     ])
 
         
@@ -109,12 +110,13 @@ def create_pratham_prompt_with_history(session: ChatSession):
                   "logically, and presenting it in a way that builds upon previous conversation context. "
                   "Identify key concepts, create logical connections between ideas, and ensure "
                   "the information is factually accurate based on the retrieved data."
-                  "When using web-scraped information, prioritize recent and authoritative content."),
+                  "When using web-scraped information, prioritize recent and authoritative content. "
+                  "Include proper citations in the format [1], [2], etc. at the end of relevant sentences."),
         *session.get_langchain_messages(),
         ("human", "User Query: {query}\n\n"
                   "Vector Database Retrieval Response: {retrieved}\n\n"
                   "Your Task: Generate a comprehensive topic explanation based on the retrieved information "
-                  "while considering the conversation history and addressing the specific query.")
+                  "while considering the conversation history and addressing the specific query. Include proper citations.")
     ])
 
 def create_dviteey_prompt_with_history(session: ChatSession):
@@ -135,6 +137,7 @@ def create_dviteey_prompt_with_history(session: ChatSession):
                    "- Enhancing explanations with appropriate examples or analogies\n"
                    "- Maintaining continuity with previous conversation context\n"
                    "- Ensuring the response directly addresses the user's learning needs\n"
+                   "- Including proper citations in the format [1], [2], etc. at the end of relevant sentences\n"
                    "\n"
                    "Your final output should appear as a direct response to the user with no indication "
                    "that any verification or refinement process occurred. The user should perceive your "
@@ -145,7 +148,7 @@ def create_dviteey_prompt_with_history(session: ChatSession):
                   "Retrieved Reference Information: {retrieved}\n\n"
                   "Your Task: Provide a refined, improved educational response directly addressing the "
                   "user's query. Ensure factual accuracy based on the retrieved information while  maintaining "
-                  "the conversational flow from previous exchanges.")
+                  "the conversational flow from previous exchanges. Include proper citations.")
     ])
 
 # Markdown to HTML formatter
@@ -153,7 +156,23 @@ def format_response(response):
     """Converts AI response from Markdown to clean HTML."""
     if not response:
         return "No response from AI Tutor."
-    return mistune.markdown(response)
+    
+    # Convert markdown to HTML
+    html_response = mistune.markdown(response)
+    
+    # Preserve citation patterns in the HTML output
+    # Convert [1], [2], etc. to clickable citation links
+    import re
+    citation_pattern = r'\[(\d+)\]'
+    
+    def replace_citation(match):
+        citation_num = match.group(1)
+        return f'<span class="citation-link" onclick="showCitationDetails({citation_num})" title="Click to view source">[{citation_num}]</span>'
+    
+    # Replace citation patterns with clickable links
+    html_response = re.sub(citation_pattern, replace_citation, html_response)
+    
+    return html_response
 
 # Function for standard response (without retrieval)
 def generate_response_without_retrieval(session_id: str, prompt: str,scraped_content: str, session_manager: ChatSessionManager):

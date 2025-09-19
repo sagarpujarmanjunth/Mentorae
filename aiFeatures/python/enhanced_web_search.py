@@ -609,16 +609,16 @@ class EnhancedWebSearcher:
         for i, result in enumerate(response.results[:3], 1):  # Limit to top 3 results
             citation = f"[{i}] {result.title} ({result.domain})"
             source_content = result.content[:800] if result.content else result.snippet
-            content_parts.append(f"\\n{citation}:\\n{source_content}")
+            content_parts.append(f"\n{citation}:\n{source_content}")
         
         # Combine and truncate if necessary
-        full_content = "\\n\\n".join(content_parts)
+        full_content = "\n\n".join(content_parts)
         
         if len(full_content) > max_chars:
-            full_content = full_content[:max_chars] + "\\n\\n[Content truncated for brevity]"
+            full_content = full_content[:max_chars] + "\n\n[Content truncated for brevity]"
         
         # Add source URLs for reference
-        source_urls = "\\n\\nSources:\\n" + "\\n".join([
+        source_urls = "\n\nSources:\n" + "\n".join([
             f"[{i}] {result.url}" for i, result in enumerate(response.results[:3], 1)
         ])
         
