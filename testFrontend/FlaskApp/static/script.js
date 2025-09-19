@@ -673,19 +673,9 @@ function sendMessage() {
       })
       .then((searchResponse) => {
         if (searchResponse.success && searchResponse.search_data) {
-          // Display search artifact
+          // Don't display search artifact immediately - just add user message and get AI response
           chatBox.removeChild(thinkingMessage);
-
-          // Try to display Claude-style artifact, fallback to text-only if it fails
-          try {
-            displayArtifactResult(searchResponse.search_data, userMessage);
-          } catch (error) {
-            console.error(
-              "Error displaying Claude-style artifact, falling back to text-only display:",
-              error
-            );
-            displayTextOnlyResult(searchResponse.search_data, userMessage);
-          }
+          chatBox.appendChild(userMessage);
 
           // Show engine used info
           if (searchResponse.engine_used) {
@@ -695,7 +685,7 @@ function sendMessage() {
             );
           }
 
-          // Add thinking message again for AI response
+          // Add thinking message for AI response
           let secondThinkingMessage = document.createElement("div");
           secondThinkingMessage.className = "ai-message";
           setAIMessageToThinking(secondThinkingMessage);
@@ -711,6 +701,11 @@ function sendMessage() {
             .then((data) => {
               chatBox.removeChild(secondThinkingMessage);
               displayAIResponse(data);
+
+              // After AI response, add the search artifact as reference links
+              setTimeout(() => {
+                addSearchArtifactAsReferences(searchResponse.search_data);
+              }, 1500); // 1.5 second delay to show search results as references
             });
         } else {
           // Handle search failure
@@ -782,31 +777,25 @@ function regularMessageFlow(userInput, userMessage, thinkingMessage) {
 function displayAIResponse(data) {
   let chatBox = document.getElementById("chat-box");
 
-  // Process AI response to extract and format citations
-  const processedResponse = processAIResponseWithCitations(data.response);
-
   // Display AI response (Left-aligned)
   let aiMessage = document.createElement("div");
   aiMessage.className = "ai-message";
-  aiMessage.innerHTML = `<strong>Mentorae:</strong> ${processedResponse.formattedText}`;
+  aiMessage.innerHTML = `<strong>Mentorae:</strong> ${data.response}`;
   chatBox.appendChild(aiMessage);
 
-  // Display citations if any were found
-  if (processedResponse.citations.length > 0) {
-    let citationsContainer = document.createElement("div");
-    citationsContainer.className = "citations-container";
-    citationsContainer.innerHTML = createCitationsDisplay(
-      processedResponse.citations
-    );
-    chatBox.appendChild(citationsContainer);
-  }
-
-  if (data.hasScraping && data.scraped) {
+  // If sources should be shown separately, add them in a new pill after a delay
+  if (data.showSourcesSeparately && data.hasScraping && data.scraped) {
+    setTimeout(() => {
+      addReferenceLinksPill(data.scraped);
+    }, 1000); // 1 second delay to show sources in a separate pill
+  } else if (data.hasScraping && data.scraped) {
+    // Legacy behavior for backward compatibility
     let scrapedInfo = document.createElement("div");
     scrapedInfo.className = "scraped-info modern-style";
     scrapedInfo.innerHTML = createModernScrapedInfo(data.scraped);
     chatBox.appendChild(scrapedInfo);
   }
+
   // If there was retrieval info and we want to show it
   if (data.hasRetrieval && data.retrieved) {
     let retrievalInfo = document.createElement("div");
@@ -818,6 +807,150 @@ function displayAIResponse(data) {
   chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
 }
 
+function addReferenceLinksPill(scrapedData) {
+  let chatBox = document.getElementById("chat-box");
+
+  // Create a new AI message pill for reference links
+  // let referencePill = document.createElement("div");
+  // referencePill.className = "ai-message reference-pill";
+
+  // Parse the scraped data to extract links
+  const lines = scrapedData.split("\n");
+  let sources = [];
+  let currentContent = "";
+
+  lines.forEach((line) => {
+    line = line.trim();
+    if (!line) return;
+
+    // Check for source patterns
+    const sourceMatch = line.match(/^\[(\d+)\]\s+(.+?)(?:\s+\(([^)]+)\))?:?$/);
+    if (sourceMatch) {
+      if (currentContent) {
+        currentContent = "";
+      }
+
+      const [, number, title, domain] = sourceMatch;
+      sources.push({
+        number: parseInt(number),
+        title: title,
+        domain: domain || extractDomainFromTitle(title),
+        url: constructUrlFromSource(title, domain),
+      });
+    }
+    // Check for direct URLs
+    else if (line.includes("http")) {
+      const urlMatch = line.match(/^\[(\d+)\]\s+(.+)/);
+      if (urlMatch) {
+        const [, number, url] = urlMatch;
+        const existingSource = sources.find(
+          (s) => s.number === parseInt(number)
+        );
+        if (existingSource) {
+          existingSource.url = url;
+        } else {
+          sources.push({
+            number: parseInt(number),
+            title: extractDomainFromUrl(url),
+            domain: extractDomainFromUrl(url),
+            url: url,
+          });
+        }
+      }
+    }
+    // Skip "Sources:" header
+    else if (line !== "Sources:") {
+      currentContent += line + " ";
+    }
+  });
+
+  // Create the reference links content
+  let referenceContent = `<strong>Mentorae:</strong> <i class="fas fa-link"></i> Reference Links:`;
+
+  if (sources.length > 0) {
+    referenceContent += `<div class="reference-links-container">`;
+    sources.forEach((source) => {
+      const favicon = `https://www.google.com/s2/favicons?domain=${source.domain}&sz=16`;
+      const domainIcon = getDomainSpecificIcon(source.domain);
+
+      referenceContent += `
+        <div class="reference-link-item" onclick="window.open('${
+          source.url
+        }', '_blank')">
+          <div class="reference-number">${source.number}</div>
+          <div class="reference-favicon">
+            <img src="${favicon}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="fallback-icon" style="display: none;">
+              <i class="${domainIcon}"></i>
+            </div>
+          </div>
+          <div class="reference-content">
+            <div class="reference-title">${truncateText(source.title, 50)}</div>
+            <div class="reference-domain">${source.domain}</div>
+          </div>
+          <div class="reference-arrow">
+            <i class="fas fa-external-link-alt"></i>
+          </div>
+        </div>
+      `;
+    });
+    referenceContent += `</div>`;
+  } else {
+    referenceContent += `<div class="no-sources">No reference links available</div>`;
+  }
+
+  referencePill.innerHTML = referenceContent;
+  chatBox.appendChild(referencePill);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function addSearchArtifactAsReferences(searchData) {
+  let chatBox = document.getElementById("chat-box");
+
+  // Create a new AI message pill for search results as references
+  let referencePill = document.createElement("div");
+  referencePill.className = "ai-message reference-pill";
+
+  // Create the reference links content from search data
+  let referenceContent = `<strong>Mentorae:</strong> <i class="fas fa-globe"></i> Web Sources:`;
+
+  if (searchData.results && searchData.results.length > 0) {
+    referenceContent += `<div class="reference-links-container">`;
+    searchData.results.slice(0, 6).forEach((result, index) => {
+      const favicon = `https://www.google.com/s2/favicons?domain=${result.domain}&sz=16`;
+      const domainIcon = getDomainSpecificIcon(result.domain);
+
+      referenceContent += `
+        <div class="reference-link-item" onclick="window.open('${
+          result.url
+        }', '_blank')">
+          <div class="reference-number">${index + 1}</div>
+          <div class="reference-favicon">
+            <img src="${favicon}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="fallback-icon" style="display: none;">
+              <i class="${domainIcon}"></i>
+            </div>
+          </div>
+          <div class="reference-content">
+            <div class="reference-title">${truncateText(result.title, 50)}</div>
+            <div class="reference-domain">${result.domain}</div>
+          </div>
+          <div class="reference-arrow">
+            <i class="fas fa-external-link-alt"></i>
+          </div>
+        </div>
+      `;
+    });
+    referenceContent += `</div>`;
+  } else {
+    referenceContent += `<div class="no-sources">No web sources available</div>`;
+  }
+
+  referencePill.innerHTML = referenceContent;
+  chatBox.appendChild(referencePill);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
 function createModernScrapedInfo(scrapedData) {
   // Parse the scraped data to extract content and links
   const lines = scrapedData.split("\n");
@@ -825,18 +958,11 @@ function createModernScrapedInfo(scrapedData) {
   let links = [];
   let currentSection = "";
   let citationCounter = 0;
-  let inSourcesSection = false;
 
   // Process each line to extract content and links
   lines.forEach((line) => {
     line = line.trim();
     if (!line) return;
-
-    // Check if we're entering the Sources section
-    if (line === "Sources:") {
-      inSourcesSection = true;
-      return;
-    }
 
     // Check if it's a source line pattern like "[1] Title (domain):"
     const sourceMatch = line.match(/^\[(\d+)\]\s+(.+?)\s+\(([^)]+)\):/);
@@ -854,7 +980,6 @@ function createModernScrapedInfo(scrapedData) {
     }
     // Check if it's a direct URL in "Sources:" section
     else if (
-      inSourcesSection &&
       line.startsWith("[") &&
       line.includes("]") &&
       line.includes("http")
@@ -878,12 +1003,12 @@ function createModernScrapedInfo(scrapedData) {
         }
       }
     }
-    // Content lines (not in sources section)
-    else if (
-      !inSourcesSection &&
-      !line.startsWith("[") &&
-      !line.startsWith("http")
-    ) {
+    // Skip "Sources:" header
+    else if (line === "Sources:") {
+      return;
+    }
+    // Content lines
+    else if (!line.startsWith("http") && currentSection) {
       content += line + " ";
     }
   });
@@ -1226,22 +1351,15 @@ window.onload = function () {
 };
 
 // Enhanced function to display modern scraped info (for regular RAG responses)
-function createModernScrapedInfoV2(scrapedData) {
+function createModernScrapedInfo(scrapedData) {
   const lines = scrapedData.split("\n");
   let content = "";
   let sources = [];
   let currentContent = "";
-  let inSourcesSection = false;
 
   lines.forEach((line) => {
     line = line.trim();
     if (!line) return;
-
-    // Check if we're entering the Sources section
-    if (line === "Sources:") {
-      inSourcesSection = true;
-      return;
-    }
 
     // Check for source patterns
     const sourceMatch = line.match(/^\[(\d+)\]\s+(.+?)(?:\s+\(([^)]+)\))?:?$/);
@@ -1259,8 +1377,8 @@ function createModernScrapedInfoV2(scrapedData) {
         url: constructUrlFromSource(title, domain),
       });
     }
-    // Check for direct URLs in sources section
-    else if (inSourcesSection && line.includes("http")) {
+    // Check for direct URLs
+    else if (line.includes("http")) {
       const urlMatch = line.match(/^\[(\d+)\]\s+(.+)/);
       if (urlMatch) {
         const [, number, url] = urlMatch;
@@ -1279,12 +1397,8 @@ function createModernScrapedInfoV2(scrapedData) {
         }
       }
     }
-    // Content lines (not in sources section)
-    else if (
-      !inSourcesSection &&
-      !line.startsWith("[") &&
-      !line.startsWith("http")
-    ) {
+    // Skip "Sources:" header
+    else if (line !== "Sources:") {
       currentContent += line + " ";
     }
   });
@@ -1481,123 +1595,4 @@ function toggleModernScrapedInfo(headerElement) {
     content.style.maxHeight = content.scrollHeight + "px";
     toggle.style.transform = "rotate(180deg)";
   }
-}
-
-// Function to process AI response and extract citations
-function processAIResponseWithCitations(responseText) {
-  const citations = [];
-  let citationCounter = 0;
-
-  // Find all citation patterns like [1], [2], etc. in both plain text and HTML
-  const citationPattern = /\[(\d+)\]/g;
-  const matches = [...responseText.matchAll(citationPattern)];
-
-  // Create a map of citation numbers to avoid duplicates
-  const citationMap = new Map();
-
-  matches.forEach((match) => {
-    const citationNumber = parseInt(match[1]);
-    if (!citationMap.has(citationNumber)) {
-      citationCounter++;
-      citationMap.set(citationNumber, {
-        number: citationNumber,
-        displayNumber: citationCounter,
-        title: `Source ${citationNumber}`,
-        url: "#",
-        domain: "Unknown",
-      });
-    }
-  });
-
-  // Convert map to array
-  citations.push(...citationMap.values());
-
-  // If the response already contains HTML citation links, don't modify them
-  if (responseText.includes("citation-link")) {
-    return {
-      formattedText: responseText,
-      citations: citations,
-    };
-  }
-
-  // Format the text with clickable citations
-  let formattedText = responseText.replace(citationPattern, (match, number) => {
-    const citation = citationMap.get(parseInt(number));
-    if (citation) {
-      return `<span class="citation-link" onclick="showCitationDetails(${citation.displayNumber})" title="Click to view source">[${citation.displayNumber}]</span>`;
-    }
-    return match;
-  });
-
-  return {
-    formattedText: formattedText,
-    citations: citations,
-  };
-}
-
-// Function to create citations display
-function createCitationsDisplay(citations) {
-  if (citations.length === 0) return "";
-
-  return `
-        <div class="citations-section">
-            <div class="citations-header" onclick="toggleCitations(this)">
-                <div class="citations-title">
-                    <i class="fas fa-quote-left"></i>
-                    <span>References</span>
-                    <span class="citations-count">${citations.length}</span>
-                </div>
-                <div class="citations-toggle">
-                    <i class="fas fa-chevron-down"></i>
-                </div>
-            </div>
-            <div class="citations-content">
-                <div class="citations-list">
-                    ${citations
-                      .map(
-                        (citation) => `
-                        <div class="citation-item" id="citation-${citation.displayNumber}">
-                            <div class="citation-number">${citation.displayNumber}</div>
-                            <div class="citation-content">
-                                <div class="citation-title">${citation.title}</div>
-                                <div class="citation-domain">${citation.domain}</div>
-                            </div>
-                            <div class="citation-actions">
-                                <button class="citation-copy-btn" onclick="copyCitation(${citation.displayNumber}, '${citation.title}', '${citation.url}')" title="Copy citation">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `
-                      )
-                      .join("")}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// Function to toggle citations visibility
-function toggleCitations(headerElement) {
-  const container = headerElement.closest(".citations-section");
-  const content = container.querySelector(".citations-content");
-  const toggle = headerElement.querySelector(".citations-toggle i");
-
-  if (container.classList.contains("expanded")) {
-    container.classList.remove("expanded");
-    content.style.maxHeight = "0";
-    toggle.classList.remove("fa-chevron-up");
-    toggle.classList.add("fa-chevron-down");
-  } else {
-    container.classList.add("expanded");
-    content.style.maxHeight = content.scrollHeight + "px";
-    toggle.classList.remove("fa-chevron-down");
-    toggle.classList.add("fa-chevron-up");
-  }
-}
-
-// Function to show citation details (placeholder for now)
-function showCitationDetails(citationNumber) {
-  // This could be enhanced to show more details about the citation
-  showToast(`Citation ${citationNumber} clicked`, "info");
 }
