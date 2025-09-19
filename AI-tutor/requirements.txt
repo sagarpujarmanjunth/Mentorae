@@ -31,6 +31,10 @@ serpapi
 googlesearch-python
 google-search-results
 beautifulsoup4
+tavily-python
+markdown
+requests
+lxml
 
 
 # NLP

@@ -15,6 +15,9 @@ try:
 except ImportError:
     HYBRID_STORE_AVAILABLE = False
     logging.warning("Hybrid vector store not available. Using legacy FAISS only.")
+    # Define a dummy VectorStore class for type hints
+    class VectorStore:
+        pass
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

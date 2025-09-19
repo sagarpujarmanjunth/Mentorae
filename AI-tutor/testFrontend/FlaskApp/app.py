@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from aiFeatures.python.ai_response import generate_response_without_retrieval, generate_response_with_retrieval, ChatSessionManager
 from aiFeatures.python.speech_to_text import speech_to_text
 from aiFeatures.python.text_to_speech import say, stop_speech
-from aiFeatures.python.web_scraping import web_response
+from aiFeatures.python.enhanced_web_search import enhanced_web_search, get_search_content_for_ai
 from aiFeatures.python.rag_pipeline import index_pdfs, retrieve_answer
 
 app = Flask(__name__)
@@ -87,9 +87,14 @@ def clear_session():
         if vector_store:
             # Try to clear hybrid store first
             if hasattr(vector_store, 'hybrid_manager'):
-                vector_store.hybrid_manager.clear_store()
-                store_type = getattr(vector_store, 'store_type', 'unknown')
-                print(f"Cleared {store_type} vector store")
+                try:
+                    hybrid_manager = getattr(vector_store, 'hybrid_manager', None)
+                    if hybrid_manager and hasattr(hybrid_manager, 'clear_store'):
+                        hybrid_manager.clear_store()
+                    store_type = getattr(vector_store, 'store_type', 'unknown')
+                    print(f"Cleared {store_type} vector store")
+                except Exception as e:
+                    print(f"Error clearing hybrid store: {e}")
             # For legacy FAISS, just reset the reference
             vector_store = None
         
@@ -140,6 +145,73 @@ def initialize_rag():
         print(f"RAG initialization error: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route("/enhanced-search", methods=["POST"])
+def enhanced_search():
+    """Enhanced web search with timeout protection and engine switching"""
+    data = request.json if request.json else {}
+    query = data.get("query")
+    search_type = data.get("search_type", "educational")
+    
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+    
+    try:
+        # Import enhanced search with timeout protection
+        from aiFeatures.python.enhanced_web_search import enhanced_web_search
+        
+        # Add request timeout handling
+        import signal
+        import threading
+        
+        search_result = None
+        search_error = None
+        
+        def search_worker():
+            nonlocal search_result, search_error
+            try:
+                search_result = enhanced_web_search(query, search_type)
+            except Exception as e:
+                search_error = e
+        
+        # Use threading for timeout on Windows
+        search_thread = threading.Thread(target=search_worker)
+        search_thread.start()
+        search_thread.join(timeout=30)  # 30 second timeout
+        
+        if search_thread.is_alive():
+            print(f"Search timed out for query: {query}")
+            return jsonify({
+                "success": False,
+                "error": "Search timed out. Please try again.",
+                "timeout": True
+            }), 408
+        
+        if search_error:
+            print(f"Enhanced search error: {search_error}")
+            return jsonify({
+                "success": False, 
+                "error": f"Search failed: {str(search_error)}"
+            }), 500
+        
+        if not search_result:
+            return jsonify({
+                "success": False,
+                "error": "No search results found"
+            }), 404
+        
+        return jsonify({
+            "success": True,
+            "search_data": search_result.to_dict(),
+            "engine_used": getattr(search_result, 'search_engine', 'unknown')
+        })
+        
+    except Exception as e:
+        print(f"Enhanced search error: {e}")
+        return jsonify({
+            "success": False, 
+            "error": f"Search failed: {str(e)}"
+        }), 500
+
 @app.route("/ask", methods=["POST"])
 def ask():
     """Handles text input and returns AI response with chat history management."""
@@ -172,7 +244,7 @@ def ask():
             })
             
         else:
-            scraped_text = web_response(user_query)  # Call web scraping function
+            scraped_text = get_search_content_for_ai(user_query)  # Enhanced web search
             response = generate_response_without_retrieval(
                 default_session_id, 
                 user_query, 

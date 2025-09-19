@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citations Test</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f4ff;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Claude-Style Scraped Information */
+        .claude-scraped-container {
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            max-width: 90%;
+            transition: all 0.3s ease;
+        }
+
+        .claude-scraped-container:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.2);
+        }
+
+        .claude-scraped-header {
+            background: #353535;
+            padding: 12px 16px;
+            border-bottom: 1px solid #404040;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background-color 0.2s ease;
+        }
+
+        .claude-scraped-header:hover {
+            background: #3a3a3a;
+        }
+
+        .claude-scraped-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+        }
+
+        .claude-scraped-icon i {
+            font-size: 16px;
+        }
+
+        .claude-scraped-title-section {
+            flex: 1;
+        }
+
+        .claude-scraped-title {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .claude-scraped-count {
+            color: #888;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .claude-scraped-toggle {
+            color: #888;
+            transition: transform 0.3s ease;
+        }
+
+        .claude-scraped-container.collapsed .claude-scraped-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .claude-scraped-content {
+            transition: all 0.4s ease;
+            overflow: hidden;
+        }
+
+        .claude-scraped-content.expanded {
+            max-height: none;
+            opacity: 1;
+            padding: 16px;
+        }
+
+        .claude-scraped-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding: 0 16px;
+        }
+
+        .claude-scraped-summary {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #404040;
+        }
+
+        .claude-summary-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .claude-summary-header i {
+            color: #60a5fa;
+            font-size: 14px;
+        }
+
+        .claude-summary-text {
+            color: #cccccc;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .claude-sources-section {
+            margin-top: 16px;
+        }
+
+        .claude-sources-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .claude-sources-header i {
+            color: #60a5fa;
+            font-size: 14px;
+        }
+
+        .claude-sources-count {
+            background: #4f46e5;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .claude-sources-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .claude-source-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #383838;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #404040;
+        }
+
+        .claude-source-item:hover {
+            background: #404040;
+            border-color: #4f46e5;
+            transform: translateX(4px);
+        }
+
+        .claude-source-citation {
+            background: #4f46e5;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .claude-source-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            flex-shrink: 0;
+        }
+
+        .claude-source-icon i {
+            font-size: 14px;
+        }
+
+        .claude-source-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .claude-source-title {
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 0 0 2px 0;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .claude-source-domain {
+            color: #888;
+            font-size: 11px;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .claude-source-favicon {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid #404040;
+        }
+
+        .claude-source-favicon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .claude-source-arrow {
+            color: #888;
+            font-size: 12px;
+            opacity: 0.7;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .claude-source-item:hover .claude-source-arrow {
+            opacity: 1;
+            color: #60a5fa;
+            transform: translateX(2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Citations Test - Claude Style</h1>
+        <p>This tests the new Claude-style citations display. Click on the header to expand/collapse.</p>
+        
+        <button onclick="testCitations()">Test Citations Display</button>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        function toggleClaudeScrapedInfo(headerElement) {
+            const container = headerElement.closest('.claude-scraped-container');
+            const content = container.querySelector('.claude-scraped-content');
+            const toggle = headerElement.querySelector('.claude-scraped-toggle i');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                content.classList.add('collapsed');
+                toggle.classList.remove('fa-chevron-up');
+                toggle.classList.add('fa-chevron-down');
+                container.classList.add('collapsed');
+            } else {
+                content.classList.remove('collapsed');
+                content.classList.add('expanded');
+                toggle.classList.remove('fa-chevron-down');
+                toggle.classList.add('fa-chevron-up');
+                container.classList.remove('collapsed');
+            }
+        }
+
+        function testCitations() {
+            const testData = `This is some scraped content about web development.
+
+[1] React Documentation (reactjs.org): React is a JavaScript library for building user interfaces.
+[2] Vue.js Guide (vuejs.org): Vue.js is a progressive JavaScript framework.
+[3] Angular Tutorial (angular.io): Angular is a platform for building mobile and desktop web applications.
+
+Sources:
+[1] https://reactjs.org/docs/getting-started.html
+[2] https://vuejs.org/guide/
+[3] https://angular.io/tutorial`;
+
+            const result = createModernScrapedInfo(testData);
+            document.getElementById('test-results').innerHTML = result;
+        }
+
+        function createModernScrapedInfo(scrapedData) {
+            console.log('Scraped data received:', scrapedData);
+            
+            const lines = scrapedData.split('\n');
+            let content = '';
+            let links = [];
+            let currentSection = '';
+            let citationCounter = 0;
+            
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                
+                const sourceMatch = line.match(/^\[(\d+)\]\s+(.+?)\s+\(([^)]+)\):/);
+                if (sourceMatch) {
+                    const [, number, title, domain] = sourceMatch;
+                    citationCounter++;
+                    links.push({
+                        number: number,
+                        title: title,
+                        domain: domain,
+                        url: `https://${domain}`,
+                        citationNumber: citationCounter
+                    });
+                    currentSection = `source-${number}`;
+                }
+                else if (line.startsWith('[') && line.includes(']') && line.includes('http')) {
+                    const urlMatch = line.match(/\[(\d+)\]\s+(.+)/);
+                    if (urlMatch) {
+                        const [, number, url] = urlMatch;
+                        const domain = new URL(url).hostname;
+                        const existingLink = links.find(l => l.number === number);
+                        if (existingLink) {
+                            existingLink.url = url;
+                        } else {
+                            citationCounter++;
+                            links.push({
+                                number: number,
+                                title: domain,
+                                domain: domain,
+                                url: url,
+                                citationNumber: citationCounter
+                            });
+                        }
+                    }
+                }
+                else if (line === 'Sources:') {
+                    return;
+                }
+                else if (!line.startsWith('http') && !line.startsWith('[') && line.length > 10) {
+                    content += line + ' ';
+                }
+            });
+            
+            if (links.length === 0 && content.length > 0) {
+                links.push({
+                    number: '1',
+                    title: 'Web Search Results',
+                    domain: 'search-results.com',
+                    url: '#',
+                    citationNumber: 1
+                });
+            }
+            
+            console.log('Content found:', content);
+            console.log('Links found:', links);
+            
+            return `
+                <div class="claude-scraped-container">
+                    <div class="claude-scraped-header" onclick="toggleClaudeScrapedInfo(this)">
+                        <div class="claude-scraped-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <div class="claude-scraped-title-section">
+                            <h3 class="claude-scraped-title">Web Search Results</h3>
+                            <span class="claude-scraped-count">${links.length} sources found</span>
+                        </div>
+                        <div class="claude-scraped-toggle">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                    <div class="claude-scraped-content expanded">
+                        ${content ? `
+                            <div class="claude-scraped-summary">
+                                <div class="claude-summary-header">
+                                    <i class="fas fa-robot"></i>
+                                    <span>AI Summary</span>
+                                </div>
+                                <div class="claude-summary-text">${content.trim()}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${links.length > 0 ? `
+                            <div class="claude-sources-section">
+                                <div class="claude-sources-header">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    <span>Sources & Citations</span>
+                                    <div class="claude-sources-count">${links.length}</div>
+                                </div>
+                                <div class="claude-sources-list">
+                                    ${links.map(link => createClaudeStyleSource(link)).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createClaudeStyleSource(link) {
+            const icon = getDomainIcon(link.domain);
+            const favicon = `https://www.google.com/s2/favicons?domain=${link.domain}&sz=16`;
+            
+            return `
+                <div class="claude-source-item" onclick="window.open('${link.url}', '_blank')">
+                    <div class="claude-source-citation">
+                        <span class="citation-number">${link.citationNumber || link.number}</span>
+                    </div>
+                    <div class="claude-source-icon">
+                        <i class="${icon}"></i>
+                    </div>
+                    <div class="claude-source-content">
+                        <div class="claude-source-title">${link.title}</div>
+                        <div class="claude-source-domain">${link.domain}</div>
+                    </div>
+                    <div class="claude-source-favicon">
+                        <img src="${favicon}" alt="" onerror="this.style.display='none'">
+                    </div>
+                    <div class="claude-source-arrow">
+                        <i class="fas fa-external-link-alt"></i>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getDomainIcon(domain) {
+            if (domain.includes('youtube')) return 'fab fa-youtube';
+            if (domain.includes('wikipedia')) return 'fab fa-wikipedia-w';
+            if (domain.includes('github')) return 'fab fa-github';
+            if (domain.includes('stackoverflow')) return 'fab fa-stack-overflow';
+            if (domain.includes('medium')) return 'fab fa-medium';
+            if (domain.includes('freecodecamp')) return 'fas fa-graduation-cap';
+            if (domain.includes('geeksforgeeks')) return 'fas fa-code';
+            if (domain.includes('w3schools')) return 'fas fa-code';
+            if (domain.includes('tutorialspoint')) return 'fas fa-book';
+            if (domain.includes('programiz')) return 'fas fa-laptop-code';
+            return 'fas fa-globe';
+        }
+    </script>
+</body>
+</html>

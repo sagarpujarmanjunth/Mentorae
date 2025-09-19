@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude UI Test</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f4ff;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Claude-Style Scraped Information */
+        .claude-scraped-container {
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            max-width: 90%;
+            transition: all 0.3s ease;
+        }
+
+        .claude-scraped-container:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.2);
+        }
+
+        .claude-scraped-header {
+            background: #353535;
+            padding: 12px 16px;
+            border-bottom: 1px solid #404040;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background-color 0.2s ease;
+        }
+
+        .claude-scraped-header:hover {
+            background: #3a3a3a;
+        }
+
+        .claude-scraped-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+        }
+
+        .claude-scraped-icon i {
+            font-size: 16px;
+        }
+
+        .claude-scraped-title-section {
+            flex: 1;
+        }
+
+        .claude-scraped-title {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .claude-scraped-count {
+            color: #888;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .claude-scraped-toggle {
+            color: #888;
+            transition: transform 0.3s ease;
+        }
+
+        .claude-scraped-container.collapsed .claude-scraped-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .claude-scraped-content {
+            transition: all 0.4s ease;
+            overflow: hidden;
+        }
+
+        .claude-scraped-content.expanded {
+            max-height: none;
+            opacity: 1;
+            padding: 16px;
+        }
+
+        .claude-scraped-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding: 0 16px;
+        }
+
+        .claude-scraped-summary {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #404040;
+        }
+
+        .claude-summary-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .claude-summary-header i {
+            color: #60a5fa;
+            font-size: 14px;
+        }
+
+        .claude-summary-text {
+            color: #cccccc;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .claude-sources-section {
+            margin-top: 16px;
+        }
+
+        .claude-sources-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .claude-sources-header i {
+            color: #60a5fa;
+            font-size: 14px;
+        }
+
+        .claude-sources-count {
+            background: #4f46e5;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .claude-sources-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .claude-source-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #383838;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #404040;
+        }
+
+        .claude-source-item:hover {
+            background: #404040;
+            border-color: #4f46e5;
+            transform: translateX(4px);
+        }
+
+        .claude-source-citation {
+            background: #4f46e5;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .claude-source-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            flex-shrink: 0;
+        }
+
+        .claude-source-icon i {
+            font-size: 14px;
+        }
+
+        .claude-source-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .claude-source-title {
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 0 0 2px 0;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .claude-source-domain {
+            color: #888;
+            font-size: 11px;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .claude-source-favicon {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid #404040;
+        }
+
+        .claude-source-favicon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .claude-source-arrow {
+            color: #888;
+            font-size: 12px;
+            opacity: 0.7;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .claude-source-item:hover .claude-source-arrow {
+            opacity: 1;
+            color: #60a5fa;
+            transform: translateX(2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Claude-Style Scraped Information UI Test</h1>
+        <p>This is a test of the new Claude-inspired scraped information display. Click on the header to expand/collapse the content.</p>
+        
+        <div class="claude-scraped-container">
+            <div class="claude-scraped-header" onclick="toggleClaudeScrapedInfo(this)">
+                <div class="claude-scraped-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <div class="claude-scraped-title-section">
+                    <h3 class="claude-scraped-title">Web Search Results</h3>
+                    <span class="claude-scraped-count">3 sources found</span>
+                </div>
+                <div class="claude-scraped-toggle">
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+            </div>
+            <div class="claude-scraped-content expanded">
+                <div class="claude-scraped-summary">
+                    <div class="claude-summary-header">
+                        <i class="fas fa-robot"></i>
+                        <span>AI Summary</span>
+                    </div>
+                    <div class="claude-summary-text">
+                        Based on the search results, here are the latest developments in web development technologies, including new frameworks, tools, and best practices for 2024.
+                    </div>
+                </div>
+                
+                <div class="claude-sources-section">
+                    <div class="claude-sources-header">
+                        <i class="fas fa-external-link-alt"></i>
+                        <span>Sources & Citations</span>
+                        <div class="claude-sources-count">3</div>
+                    </div>
+                    <div class="claude-sources-list">
+                        <div class="claude-source-item" onclick="window.open('https://example.com', '_blank')">
+                            <div class="claude-source-citation">
+                                <span class="citation-number">1</span>
+                            </div>
+                            <div class="claude-source-icon">
+                                <i class="fab fa-github"></i>
+                            </div>
+                            <div class="claude-source-content">
+                                <div class="claude-source-title">Modern Web Development Trends 2024</div>
+                                <div class="claude-source-domain">github.com</div>
+                            </div>
+                            <div class="claude-source-favicon">
+                                <img src="https://www.google.com/s2/favicons?domain=github.com&sz=16" alt="" onerror="this.style.display='none'">
+                            </div>
+                            <div class="claude-source-arrow">
+                                <i class="fas fa-external-link-alt"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="claude-source-item" onclick="window.open('https://example.com', '_blank')">
+                            <div class="claude-source-citation">
+                                <span class="citation-number">2</span>
+                            </div>
+                            <div class="claude-source-icon">
+                                <i class="fab fa-youtube"></i>
+                            </div>
+                            <div class="claude-source-content">
+                                <div class="claude-source-title">React 18 New Features and Best Practices</div>
+                                <div class="claude-source-domain">youtube.com</div>
+                            </div>
+                            <div class="claude-source-favicon">
+                                <img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=16" alt="" onerror="this.style.display='none'">
+                            </div>
+                            <div class="claude-source-arrow">
+                                <i class="fas fa-external-link-alt"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="claude-source-item" onclick="window.open('https://example.com', '_blank')">
+                            <div class="claude-source-citation">
+                                <span class="citation-number">3</span>
+                            </div>
+                            <div class="claude-source-icon">
+                                <i class="fab fa-wikipedia-w"></i>
+                            </div>
+                            <div class="claude-source-content">
+                                <div class="claude-source-title">JavaScript ES2024 Features and Updates</div>
+                                <div class="claude-source-domain">wikipedia.org</div>
+                            </div>
+                            <div class="claude-source-favicon">
+                                <img src="https://www.google.com/s2/favicons?domain=wikipedia.org&sz=16" alt="" onerror="this.style.display='none'">
+                            </div>
+                            <div class="claude-source-arrow">
+                                <i class="fas fa-external-link-alt"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleClaudeScrapedInfo(headerElement) {
+            const container = headerElement.closest('.claude-scraped-container');
+            const content = container.querySelector('.claude-scraped-content');
+            const toggle = headerElement.querySelector('.claude-scraped-toggle i');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                content.classList.add('collapsed');
+                toggle.classList.remove('fa-chevron-up');
+                toggle.classList.add('fa-chevron-down');
+                container.classList.add('collapsed');
+            } else {
+                content.classList.remove('collapsed');
+                content.classList.add('expanded');
+                toggle.classList.remove('fa-chevron-down');
+                toggle.classList.add('fa-chevron-up');
+                container.classList.remove('collapsed');
+            }
+        }
+    </script>
+</body>
+</html>

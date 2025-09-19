@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Search Results Display</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="chat-container">
+        <div id="chat-box">
+            <!-- Test display here -->
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Test data
+        const testData = {
+            query: "machine learning algorithms",
+            total_results: 5,
+            answer: "Machine learning algorithms are computational methods that enable systems to automatically learn and improve from experience without explicit programming. They can be categorized into supervised learning, unsupervised learning, and reinforcement learning.",
+            results: [
+                {
+                    title: "Introduction to Machine Learning Algorithms",
+                    domain: "wikipedia.org",
+                    url: "https://en.wikipedia.org/wiki/Machine_learning"
+                },
+                {
+                    title: "Machine Learning Algorithms Overview",
+                    domain: "geeksforgeeks.org",
+                    url: "https://www.geeksforgeeks.org/machine-learning-algorithms/"
+                },
+                {
+                    title: "Understanding ML Algorithms",
+                    domain: "medium.com",
+                    url: "https://medium.com/machine-learning-basics"
+                }
+            ],
+            videos: [
+                {
+                    title: "Machine Learning Basics",
+                    channel: "Tech with Tim",
+                    duration: "15:30",
+                    url: "https://youtube.com/ml-basics"
+                },
+                {
+                    title: "Top 10 ML Algorithms",
+                    channel: "Programming with Mosh",
+                    duration: "22:15",
+                    url: "https://youtube.com/top-ml-algorithms"
+                }
+            ]
+        };
+
+        // Test the display functions when the page loads
+        document.addEventListener("DOMContentLoaded", function() {
+            const userMessage = document.createElement("div");
+            userMessage.className = "user-message";
+            userMessage.innerHTML = "<strong>You:</strong> machine learning algorithms";
+            
+            // Test the display functions
+            setTimeout(() => {
+                try {
+                    displayArtifactResult(testData, userMessage);
+                } catch (error) {
+                    console.error("Error displaying Claude-style artifact:", error);
+                    displayTextOnlyResult(testData, userMessage);
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
