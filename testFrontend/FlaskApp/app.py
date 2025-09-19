@@ -244,7 +244,9 @@ def ask():
             })
             
         else:
-            scraped_text = get_search_content_for_ai(user_query)  # Enhanced web search
+            # Get search content for AI processing
+            scraped_text = get_search_content_for_ai(user_query, "educational")
+            
             response = generate_response_without_retrieval(
                 default_session_id, 
                 user_query, 
@@ -256,7 +258,8 @@ def ask():
             return jsonify({
                 "response": response,
                 "scraped": scraped_text,
-                "hasScraping": bool(scraped_text)
+                "hasScraping": bool(scraped_text),
+                "showSourcesSeparately": True  # Flag to indicate sources should be shown separately
             })
     
     except Exception as e:

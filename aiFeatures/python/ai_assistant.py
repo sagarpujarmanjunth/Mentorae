@@ -58,14 +58,18 @@ def initialize_rag():
         print("\n❌ Invalid choice. Please enter 0, 1, 2 or 3.")
         return None
 
-# Initialize RAG based on user input
-print("\nInitializing RAG system...")
-vector_store = initialize_rag()
+# Initialize RAG based on user input (only when running as main script)
+if __name__ == "__main__":
+    print("\nInitializing RAG system...")
+    vector_store = initialize_rag()
 
-if vector_store:
-    print("\n✅ RAG system initialized successfully!")
+    if vector_store:
+        print("\n✅ RAG system initialized successfully!")
+    else:
+        print("\n⚠️ No PDFs loaded. The AI will answer questions without document-based knowledge.")
 else:
-    print("\n⚠️ No PDFs loaded. The AI will answer questions without document-based knowledge.")
+    # When imported as module, don't initialize RAG automatically
+    vector_store = None
     
 # Markdown converter
 def convert_to_markdown(html_text):
@@ -75,6 +79,8 @@ def convert_to_markdown(html_text):
     return converter.handle(html_text)
 
 def main():
+    global vector_store
+    
     print("\nWelcome to AI Assistant!")
     text_to_speech("Welcome to AI Assistant!")
     mode = input("\nChoose mode (text [1] / voice [2]): ").strip().lower()

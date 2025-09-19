@@ -52,3 +52,9 @@ pyttsx3
 speechrecognition
 pyaudio
 
+# YouTube Search
+youtube-search-python
+
+# Tavily AI Search
+tavily-python
+
