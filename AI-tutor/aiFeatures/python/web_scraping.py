@@ -1,9 +1,13 @@
 import os
 import sys
+import logging
 import webbrowser
 from difflib import SequenceMatcher
 from serpapi import GoogleSearch
 from dotenv import load_dotenv
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Add aiFeatures/python to sys.path for module imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
@@ -72,14 +76,27 @@ def search_best_link(query, api_key):
     return best_link
 
 def web_response(query):
+    """Enhanced web response with Tavily integration and fallback"""
+    try:
+        # Use enhanced search directly
+        from enhanced_web_search import get_search_content_for_ai
+        logger.info(f"Using enhanced web search for: {query}")
+        return get_search_content_for_ai(query, "educational")
+    except ImportError:
+        logger.warning("Enhanced search not available, using fallback")
+    except Exception as e:
+        logger.error(f"Enhanced search failed: {e}, using fallback")
+        
+    # Fallback to original implementation
     api_key = serp_api_key
     query = query.strip()
     scraped_contents = ""  # Initialize the variable
     
     best_link = search_best_link(query, api_key)
     if best_link:
-        print("Best link found:", best_link)
-        webbrowser.open(best_link)
+        logger.info("Best link found:", best_link)
+        # Don't auto-open browser anymore
+        # webbrowser.open(best_link)
         
         # Scrape the content from the best link
         content = scrape_url(best_link)
@@ -92,12 +109,12 @@ def web_response(query):
         output_file = os.path.join(output_folder, "scraped_content.txt")
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"Scraped content has been stored in '{output_file}'")
+        logger.info(f"Scraped content has been stored in '{output_file}'")
                 # Read and print the contents of the scraped file
         with open(output_file, "r", encoding="utf-8") as f:
             scraped_contents = f.read()
     else:
-        print("No suitable link found for your query.")
+        logger.info("No suitable link found for your query.")
         scraped_contents = "No relevant content found for your query."
         
     return scraped_contents
