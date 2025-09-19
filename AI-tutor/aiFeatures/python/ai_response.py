@@ -12,9 +12,9 @@ from typing import List, Dict, Tuple, Optional
 
 load_dotenv()
 # Initialize AI Tutor Models
-llm_shunya = ChatGoogleGenerativeAI(model="gemini-1.5-flash")   
-llm_pratham = ChatGoogleGenerativeAI(model="gemini-1.5-flash")  
-llm_dviteey = ChatGoogleGenerativeAI(model="gemini-2.5-flash")  
+llm_naveen = ChatGoogleGenerativeAI(model="gemini-1.5-flash")   
+llm_dheeraj = ChatGoogleGenerativeAI(model="gemini-1.5-flash")  
+llm_kishan = ChatGoogleGenerativeAI(model="gemini-2.5-flash")  
 
 @dataclass
 class Message:
@@ -81,8 +81,8 @@ class ChatSessionManager:
 def create_shunya_prompt_with_history(session: ChatSession):
     """Create a prompt template that includes chat history."""
     return ChatPromptTemplate.from_messages([
-        ("system", "You are an experienced AI Tutor named KIRA."
-                   "Your name is KIRA."
+        ("system", "You are an experienced AI Tutor named Mentorae."
+                   "Your name is Mentorae."
                    "you are specialized in personalized education. "
                    "You will be provided with web scraped content and a user query. "
                    "Your goal is to provide clear, thoughtful explanations tailored to the student's "
@@ -120,8 +120,8 @@ def create_pratham_prompt_with_history(session: ChatSession):
 def create_dviteey_prompt_with_history(session: ChatSession):
     """Create a dviteey prompt template with chat history for response verification."""
     return ChatPromptTemplate.from_messages([
-        ("system", "You are an expert AI Tutor named KIRA."
-                   "Your name is KIRA."
+        ("system", "You are an expert AI Tutor named Mentorae."
+                   "Your name is Mentorae."
                    "you are responsible for delivering the highest quality educational content. "
                    "Your task is to review and enhance the educational material provided to you. "
                    "This is a confidential verification process - you must NEVER mention or acknowledge the existence "
@@ -167,7 +167,7 @@ def generate_response_without_retrieval(session_id: str, prompt: str,scraped_con
         
         # Create prompt with history and generate response
         prompt_template = create_shunya_prompt_with_history(session)
-        shunya_response = (prompt_template | llm_shunya | StrOutputParser()).invoke({
+        shunya_response = (prompt_template | llm_naveen | StrOutputParser()).invoke({
             "query": prompt,
             "scraped_content": scraped_content,
             })
@@ -191,14 +191,14 @@ def generate_response_with_retrieval(session_id: str, prompt: str, retrieved_dat
 
         # Step 1: Generate initial response with history
         pratham_prompt = create_pratham_prompt_with_history(session)
-        pratham_response = (pratham_prompt | llm_pratham | StrOutputParser()).invoke({
+        pratham_response = (pratham_prompt | llm_dheeraj | StrOutputParser()).invoke({
             "query": prompt,
             "retrieved": retrieved_data,
         })
 
         # Step 2: Verify & refine response using retrieval data and history
         dviteey_prompt = create_dviteey_prompt_with_history(session)
-        dviteey_response = (dviteey_prompt | llm_dviteey | StrOutputParser()).invoke({
+        dviteey_response = (dviteey_prompt | llm_kishan | StrOutputParser()).invoke({
             "query": prompt,
             "retrieved": retrieved_data,
             "response": pratham_response,

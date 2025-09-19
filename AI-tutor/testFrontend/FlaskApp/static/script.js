@@ -36,7 +36,7 @@ function displayFileNames(files) {
     fileNameDisplay.className = "file-name-display";
     
     const fileNames = Array.from(files).map(file => file.name).join(", ");
-    fileNameDisplay.innerHTML = `<strong>KIRA:</strong> Loading documents: ${fileNames}`;
+    fileNameDisplay.innerHTML = `<strong>Mentorae:</strong> Loading documents: ${fileNames}`;
     chatBox.appendChild(fileNameDisplay);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -51,7 +51,7 @@ function handleFileUpload(files) {
     const chatBox = document.getElementById("chat-box");
     const initializingMessage = document.createElement("div");
     initializingMessage.className = "ai-message";
-    initializingMessage.innerHTML = `<strong>KIRA:</strong> Initializing RAG system with documents...`;
+    initializingMessage.innerHTML = `<strong>Mentorae:</strong> Initializing RAG system with documents...`;
     chatBox.appendChild(initializingMessage);
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -77,10 +77,10 @@ function handleFileUpload(files) {
         ragMessage.className = "ai-message";
 
         if (data.success) {
-            ragMessage.innerHTML = `<strong>KIRA:</strong> ✅ RAG initialized successfully! You can now ask questions about the uploaded documents.`;
+            ragMessage.innerHTML = `<strong>Mentorae:</strong> ✅ RAG initialized successfully! You can now ask questions about the uploaded documents.`;
             updateRagStatus(true);
         } else {
-            ragMessage.innerHTML = `<strong>KIRA:</strong> ❌ Failed to initialize RAG. Falling back to standard response generation.`;
+            ragMessage.innerHTML = `<strong>Mentorae:</strong> ❌ Failed to initialize RAG. Falling back to standard response generation.`;
             updateRagStatus(false);
         }
 
@@ -96,7 +96,7 @@ function handleFileUpload(files) {
         const chatBox = document.getElementById("chat-box");
         const errorMessage = document.createElement("div");
         errorMessage.className = "ai-message";
-        errorMessage.innerHTML = `<strong>KIRA:</strong> ❌ Error initializing RAG. Falling back to standard response generation.`;
+        errorMessage.innerHTML = `<strong>Mentorae:</strong> ❌ Error initializing RAG. Falling back to standard response generation.`;
         chatBox.appendChild(errorMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
         
@@ -112,14 +112,14 @@ function handleFolderUpload(files) {
     const chatBox = document.getElementById("chat-box");
     const folderNameDisplay = document.createElement("div");
     folderNameDisplay.className = "file-name-display";
-    folderNameDisplay.innerHTML = `<strong>KIRA:</strong> Loading documents from folder: ${folderName}`;
+    folderNameDisplay.innerHTML = `<strong>Mentorae:</strong> Loading documents from folder: ${folderName}`;
     chatBox.appendChild(folderNameDisplay);
     chatBox.scrollTop = chatBox.scrollHeight;
 
     // Display initializing message
     const initializingMessage = document.createElement("div");
     initializingMessage.className = "ai-message";
-    initializingMessage.innerHTML = `<strong>KIRA:</strong> Initializing RAG system with folder documents...`;
+    initializingMessage.innerHTML = `<strong>Mentorae:</strong> Initializing RAG system with folder documents...`;
     chatBox.appendChild(initializingMessage);
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -145,10 +145,10 @@ function handleFolderUpload(files) {
         ragMessage.className = "ai-message";
 
         if (data.success) {
-            ragMessage.innerHTML = `<strong>KIRA:</strong> ✅ RAG initialized successfully with folder documents! You can now ask questions about the uploaded documents.`;
+            ragMessage.innerHTML = `<strong>Mentorae:</strong> ✅ RAG initialized successfully with folder documents! You can now ask questions about the uploaded documents.`;
             updateRagStatus(true);
         } else {
-            ragMessage.innerHTML = `<strong>KIRA:</strong> ❌ Failed to initialize RAG. Falling back to standard response generation.`;
+            ragMessage.innerHTML = `<strong>Mentorae:</strong> ❌ Failed to initialize RAG. Falling back to standard response generation.`;
             updateRagStatus(false);
         }
 
@@ -163,7 +163,7 @@ function handleFolderUpload(files) {
         
         const errorMessage = document.createElement("div");
         errorMessage.className = "ai-message";
-        errorMessage.innerHTML = `<strong>KIRA:</strong> ❌ Error initializing RAG. Falling back to standard response generation.`;
+        errorMessage.innerHTML = `<strong>Mentorae:</strong> ❌ Error initializing RAG. Falling back to standard response generation.`;
         chatBox.appendChild(errorMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
         
@@ -206,9 +206,9 @@ function setAIMessageToThinking(messageElement) {
             dotsContainer.appendChild(dot);
         }
         
-        // Add "KIRA:" label
+        // Add "Mentorae:" label
         const label = document.createElement('strong');
-        label.textContent = 'KIRA:';
+        label.textContent = 'Mentorae:';
         messageElement.appendChild(label);
         messageElement.appendChild(dotsContainer);
     }
@@ -248,7 +248,7 @@ function sendMessage() {
         // Display AI response (Left-aligned)
         let aiMessage = document.createElement("div");
         aiMessage.className = "ai-message";
-        aiMessage.innerHTML = `<strong>KIRA:</strong> ${data.response}`;
+        aiMessage.innerHTML = `<strong>Mentorae:</strong> ${data.response}`;
         chatBox.appendChild(aiMessage);
 
         if (data.hasScraping && data.scraped) {
@@ -280,7 +280,7 @@ function sendMessage() {
         // Display error message
         let errorMessage = document.createElement("div");
         errorMessage.className = "ai-message error";
-        errorMessage.innerHTML = `<strong>KIRA:</strong> Sorry, I encountered an error processing your request. Please try again.`;
+        errorMessage.innerHTML = `<strong>Mentorae:</strong> Sorry, I encountered an error processing your request. Please try again.`;
         chatBox.appendChild(errorMessage);
         
         console.error("Error sending message:", error);
@@ -426,8 +426,8 @@ window.onload = function() {
         const chatBox = document.getElementById("chat-box");
         const welcomeMessage = document.createElement("div");
         welcomeMessage.className = "ai-message";
-        const welcomeText = "Hello! I'm KIRA your AI Tutor. You can ask me questions directly, or upload PDF documents using the buttons below to get document-specific answers. How can I help you today?";
-        welcomeMessage.innerHTML = `<strong>KIRA:</strong> ${welcomeText}`;
+        const welcomeText = "Hello! I'm Mentorae your AI Tutor. You can ask me questions directly, or upload PDF documents using the buttons below to get document-specific answers. How can I help you today?";
+        welcomeMessage.innerHTML = `<strong>Mentorae:</strong> ${welcomeText}`;
         chatBox.appendChild(welcomeMessage);
         
         // Send welcome message for speech synthesis
