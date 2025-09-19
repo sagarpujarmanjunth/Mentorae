@@ -38,8 +38,9 @@ langchain-ollama
 sentence_transformers
 
 
-# RAG
+# RAG - Vector Stores
 faiss-cpu
+pinecone[grpc]>=7.0.0
 
 
 # Conversational Agents

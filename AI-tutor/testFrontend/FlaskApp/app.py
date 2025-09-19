@@ -51,14 +51,47 @@ def chunk_text(text, max_length=150):
 def home():
     return render_template("index.html")
 
+@app.route("/status", methods=["GET"])
+def get_status():
+    """Get the current status of the vector store."""
+    global vector_store
+    
+    try:
+        if not vector_store:
+            return jsonify({
+                "vector_store": None,
+                "store_type": None,
+                "message": "No vector store initialized"
+            })
+        
+        store_type = getattr(vector_store, 'store_type', 'legacy_faiss')
+        is_hybrid = hasattr(vector_store, 'hybrid_manager')
+        
+        return jsonify({
+            "vector_store": "initialized",
+            "store_type": store_type,
+            "is_hybrid": is_hybrid,
+            "message": f"Vector store active: {store_type}"
+        })
+    
+    except Exception as e:
+        return jsonify({"error": f"Status check failed: {str(e)}"}), 500
+
 @app.route("/clear-session", methods=["POST"])
 def clear_session():
     """Clears the current RAG session and resets the vector store."""
     global vector_store, session_manager
     
     try:
-        # Reset the vector store
-        vector_store = None
+        # Handle both FAISS and hybrid vector stores
+        if vector_store:
+            # Try to clear hybrid store first
+            if hasattr(vector_store, 'hybrid_manager'):
+                vector_store.hybrid_manager.clear_store()
+                store_type = getattr(vector_store, 'store_type', 'unknown')
+                print(f"Cleared {store_type} vector store")
+            # For legacy FAISS, just reset the reference
+            vector_store = None
         
         # Clear the session for this user
         session_manager.delete_session(default_session_id)

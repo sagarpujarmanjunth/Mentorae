@@ -94,6 +94,10 @@ def main():
     # Step 1: Check if retrieval is needed
     retrieved_info = retrieve_answer(user_input, vector_store) if vector_store else ""
     
+    # Show vector store information
+    if vector_store:
+        store_type = getattr(vector_store, 'store_type', 'legacy_faiss')
+        print(f"\nUsing {store_type} vector store for retrieval")
     
     if retrieved_info:
         print("\nRetrieved information:")
@@ -101,7 +105,7 @@ def main():
 
     # Step 2: Choose AI response function based on retrieval
     if retrieved_info:
-        response = generate_response_with_retrieval(default_session_id, user_input, scraped_text, retrieved_info, session_manager)
+        response = generate_response_with_retrieval(default_session_id, user_input, retrieved_info, session_manager)
     else:
         response = generate_response_without_retrieval(default_session_id, user_input, scraped_text, session_manager)
 
