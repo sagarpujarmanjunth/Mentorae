@@ -8,6 +8,14 @@ from pypdf import PdfReader
 from typing import List, Dict, Tuple, Union, Optional
 import logging
 
+# Import the hybrid vector store
+try:
+    from hybrid_vector_store import HybridVectorStore, VectorStore
+    HYBRID_STORE_AVAILABLE = True
+except ImportError:
+    HYBRID_STORE_AVAILABLE = False
+    logging.warning("Hybrid vector store not available. Using legacy FAISS only.")
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -47,9 +55,9 @@ def extract_text_from_pdf(pdf_path: str) -> List[Tuple[str, Dict]]:
         return []
 
 def index_pdfs(pdf_inputs: Union[str, List[str]], chunk_size: int = 1000, chunk_overlap: int = 200, 
-               model: str = "mxbai-embed-large:latest") -> Optional[FAISS]:
+               model: str = "mxbai-embed-large:latest") -> Optional[Union[FAISS, VectorStore]]:
     """
-    Unified function to index PDFs from various input types (single PDF, list of PDFs, or folder)
+    Unified function to index PDFs with hybrid storage (local FAISS vs Pinecone)
     
     Args:
         pdf_inputs: Can be a single PDF path, a list of PDF paths, or a folder path
@@ -58,7 +66,7 @@ def index_pdfs(pdf_inputs: Union[str, List[str]], chunk_size: int = 1000, chunk_
         model: Embedding model to use
         
     Returns:
-        FAISS vector store or None if indexing failed
+        Vector store (FAISS for legacy compatibility, or hybrid store)
     """
     all_texts_with_metadata = []
     
@@ -104,9 +112,74 @@ def index_pdfs(pdf_inputs: Union[str, List[str]], chunk_size: int = 1000, chunk_
         logger.warning("No text content extracted from any PDFs")
         return None
     
-    # Create the index
-    logger.info(f"Creating FAISS index with {len(all_texts_with_metadata)} text segments")
-    return create_faiss_index(all_texts_with_metadata, chunk_size, chunk_overlap, model)
+    # Use hybrid storage if available, otherwise fall back to legacy FAISS
+    if HYBRID_STORE_AVAILABLE:
+        logger.info(f"Creating hybrid vector store with {len(all_texts_with_metadata)} text segments")
+        return create_hybrid_index(all_texts_with_metadata, chunk_size, chunk_overlap, model)
+    else:
+        logger.info(f"Creating legacy FAISS index with {len(all_texts_with_metadata)} text segments")
+        return create_faiss_index(all_texts_with_metadata, chunk_size, chunk_overlap, model)
+
+def create_hybrid_index(texts_with_metadata: List[Tuple[str, Dict]], 
+                       chunk_size: int = 1000, 
+                       chunk_overlap: int = 200,
+                       model: str = "mxbai-embed-large:latest") -> Optional[VectorStore]:
+    """
+    Creates a hybrid vector store that chooses between local FAISS and Pinecone
+    based on document size and complexity.
+    
+    Args:
+        texts_with_metadata: List of tuples containing (text, metadata)
+        chunk_size: Size of text chunks for splitting
+        chunk_overlap: Overlap between chunks
+        model: Embedding model to use
+        
+    Returns:
+        Hybrid vector store or None if creation failed
+    """
+    try:
+        # Initialize text splitter
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, 
+            chunk_overlap=chunk_overlap
+        )
+        
+        # Process text chunks with metadata
+        documents = []
+        metadata_list = []
+        
+        for text, metadata in texts_with_metadata:
+            chunks = text_splitter.split_text(text)
+            documents.extend(chunks)
+            metadata_list.extend([metadata] * len(chunks))
+        
+        logger.info(f"Created {len(documents)} text chunks after splitting")
+        
+        # Initialize embedding model
+        embeddings = OllamaEmbeddings(model=model)
+        # Test the embedding function
+        embedding_dim = len(embeddings.embed_query("test"))
+        logger.info(f"Using embedding model {model} with dimension {embedding_dim}")
+        
+        # Create hybrid vector store
+        hybrid_store = HybridVectorStore(embeddings, embedding_dim)
+        vector_store = hybrid_store.create_store(texts_with_metadata)
+        
+        # Add documents to vector store
+        vector_store.add_texts(documents, metadata_list)
+        logger.info(f"Successfully indexed {len(documents)} text chunks using {hybrid_store.get_store_type()} storage")
+        
+        # Return wrapper that includes store type information
+        vector_store.store_type = hybrid_store.get_store_type()
+        vector_store.hybrid_manager = hybrid_store
+        
+        return vector_store
+        
+    except Exception as e:
+        logger.error(f"Error creating hybrid index: {str(e)}")
+        # Fall back to legacy FAISS if hybrid fails
+        logger.info("Falling back to legacy FAISS indexing")
+        return create_faiss_index(texts_with_metadata, chunk_size, chunk_overlap, model)
 
 def create_faiss_index(texts_with_metadata: List[Tuple[str, Dict]], 
                       chunk_size: int = 1000, 
@@ -166,34 +239,56 @@ def create_faiss_index(texts_with_metadata: List[Tuple[str, Dict]],
     
     return vector_store
 
-def retrieve_answer(query: str, vector_store: FAISS, k: int = 3) -> str:
+def retrieve_answer(query: str, vector_store, k: int = 3) -> str:
     """
     Retrieves the most relevant documents based on the query, with metadata.
+    Works with both FAISS and hybrid vector stores.
     
     Args:
         query: The search query
-        vector_store: FAISS vector store to search in
+        vector_store: Vector store to search in (FAISS or hybrid)
         k: Number of results to return
         
     Returns:
         Formatted string with search results
     """
+    if not vector_store:
+        return "No vector store available."
+    
     logger.info(f"Searching for: '{query}'")
-    docs = vector_store.similarity_search_with_score(query, k=k)
     
-    if not docs:
-        return "No relevant information found."
-    
-    results = []
-    for i, (doc, score) in enumerate(docs):
-        metadata = doc.metadata
-        results.append(
-            f"Result {i+1} (Similarity: {1 - score:.4f}):\n"
-            f"File: {metadata['file_name']}, Page: {metadata['page_index'] + 1}/{metadata['total_pages']}\n"
-            f"Content: {doc.page_content.strip()}\n"
-        )
-    
-    return "\n".join(results)
+    try:
+        # Handle both FAISS and hybrid vector stores
+        if hasattr(vector_store, 'similarity_search_with_score'):
+            docs = vector_store.similarity_search_with_score(query, k=k)
+        else:
+            logger.error("Vector store does not support similarity search")
+            return "Search not supported for this vector store type."
+        
+        if not docs:
+            return "No relevant information found."
+        
+        results = []
+        for i, (doc, score) in enumerate(docs):
+            metadata = doc.metadata if hasattr(doc, 'metadata') else {}
+            content = doc.page_content if hasattr(doc, 'page_content') else str(doc)
+            
+            # Handle different metadata formats
+            file_name = metadata.get('file_name', 'Unknown')
+            page_num = metadata.get('page_index', 0) + 1 if 'page_index' in metadata else 'Unknown'
+            total_pages = metadata.get('total_pages', 'Unknown')
+            
+            results.append(
+                f"Result {i+1} (Similarity: {1 - score:.4f}):\n"
+                f"File: {file_name}, Page: {page_num}/{total_pages}\n"
+                f"Content: {content.strip()}\n"
+            )
+        
+        return "\n".join(results)
+        
+    except Exception as e:
+        logger.error(f"Error during retrieval: {str(e)}")
+        return f"Error retrieving information: {str(e)}"
 
 def save_index(vector_store: FAISS, path: str) -> None:
     """Save the FAISS index to disk"""
