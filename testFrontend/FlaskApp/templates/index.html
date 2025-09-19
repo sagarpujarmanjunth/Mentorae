@@ -54,6 +54,14 @@
         </div>
       </div>
 
+      <!-- Image Processing Progress -->
+      <div id="image-processing-indicator" class="hidden">
+        <div class="loading-box">
+          <p id="image-processing-text">Processing Image...</p>
+          <div class="spinner"></div>
+        </div>
+      </div>
+
       <div class="input-container">
         <textarea
           class="textbar"
@@ -77,6 +85,13 @@
           >
             <i class="fa-solid fa-paperclip"></i>
             <span class="tooltip">Add PDF Files</span>
+          </button>
+          <button
+            class="image-button"
+            onclick="document.getElementById('image-file').click()"
+          >
+            <i class="fa-solid fa-image"></i>
+            <span class="tooltip">Add Image</span>
           </button>
 
           <button class="stop-button" onclick="stopSpeech()">
@@ -103,6 +118,13 @@
             multiple
             style="display: none"
             onchange="handleFolderUpload(this.files)"
+          />
+          <input
+            type="file"
+            id="image-file"
+            accept="image/*"
+            style="display: none"
+            onchange="handleImageUpload(this.files[0])"
           />
 
         

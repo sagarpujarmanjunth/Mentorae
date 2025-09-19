@@ -14,6 +14,7 @@ from aiFeatures.python.speech_to_text import speech_to_text
 from aiFeatures.python.text_to_speech import say, stop_speech
 from aiFeatures.python.enhanced_web_search import enhanced_web_search, get_search_content_for_ai
 from aiFeatures.python.rag_pipeline import index_pdfs, retrieve_answer
+from aiFeatures.python.image_processing import process_image, analyze_image_for_education
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Add a secret key for sessions
@@ -144,6 +145,122 @@ def initialize_rag():
     except Exception as e:
         print(f"RAG initialization error: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/process-image", methods=["POST"])
+def process_image_endpoint():
+    """Handles image processing and returns AI analysis of the image."""
+    try:
+        if 'image' not in request.files:
+            return jsonify({"success": False, "message": "No image file provided"}), 400
+            
+        file = request.files['image']
+        if file.filename == '' or file.filename is None:
+            return jsonify({"success": False, "message": "No image selected"}), 400
+            
+        # Check if the file is an image
+        allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
+        if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+            return jsonify({"success": False, "message": "Invalid file type. Please upload an image file."}), 400
+        
+        # Save image to temporary location
+        file_extension = os.path.splitext(file.filename)[1] if file.filename else '.jpg'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+            file.save(tmp_file.name)
+            temp_image_path = tmp_file.name
+        
+        try:
+            # Process the image
+            image_data = process_image(temp_image_path)
+            
+            # Get user query if provided
+            user_query = request.form.get('query', '')
+            
+            # Analyze image for educational content
+            analysis = analyze_image_for_education(image_data, user_query)
+            
+            # Clean up temporary file
+            os.unlink(temp_image_path)
+            
+            # Check if there was an OCR error and provide a helpful message
+            extracted_text = image_data.get("extracted_text", "")
+            if "OCR not available" in extracted_text or "tesseract is not installed" in extracted_text.lower():
+                analysis += "\n\nNote: OCR (text extraction from images) is not available because Tesseract OCR is not installed. To enable this feature, please install Tesseract OCR and ensure it's in your system PATH."
+            
+            return jsonify({
+                "success": True,
+                "message": "Image processed successfully",
+                "image_data": {
+                    "extracted_text": image_data.get("extracted_text", ""),
+                    "image_description": image_data.get("image_description", ""),
+                    "image_size": image_data.get("image_size", "Unknown"),
+                    "image_mode": image_data.get("image_mode", "Unknown")
+                },
+                "analysis": analysis
+            })
+            
+        except Exception as e:
+            # Clean up temporary file in case of error
+            if os.path.exists(temp_image_path):
+                os.unlink(temp_image_path)
+            raise e
+            
+    except Exception as e:
+        print(f"Image processing error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/ask-about-image", methods=["POST"])
+def ask_about_image():
+    """Handles questions about previously processed images."""
+    global session_manager, default_session_id
+    data = request.json if request.json else {}
+    user_query = data.get("query")
+    image_data = data.get("image_data", {})
+    image_analysis = data.get("image_analysis", "")
+
+    if not user_query:
+        return jsonify({"error": "No input provided"}), 400
+
+    try:
+        # Create a prompt that includes the image context
+        from langchain.prompts import ChatPromptTemplate
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain.schema.output_parser import StrOutputParser
+        
+        # Initialize Gemini model
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+        
+        # Create prompt for image-based questions
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are an AI Tutor named Mentorae. You specialize in explaining educational content. "
+                      "A user has uploaded an image and you have already analyzed it. "
+                      "The user is now asking specific questions about the image content. "
+                      "Use the provided image analysis and extracted text to answer the user's question accurately and comprehensively. "
+                      "If the question is unrelated to the image, politely redirect the user to ask image-related questions."),
+            ("human", f"Based on the image analysis:\n"
+                     f"Extracted Text: {image_data.get('extracted_text', '')}\n"
+                     f"Image Description: {image_analysis}\n"
+                     f"Image Size: {image_data.get('image_size', 'Unknown')}\n"
+                     f"Image Mode: {image_data.get('image_mode', 'Unknown')}\n\n"
+                     f"User's Question: {user_query}")
+        ])
+        
+        # Generate response
+        chain = prompt | llm | StrOutputParser()
+        response = chain.invoke({})
+        
+        # Convert response to speech
+        try:
+            say(response)
+        except Exception as e:
+            print(f"Text-to-speech error: {e}")
+        
+        return jsonify({
+            "response": response
+        })
+        
+    except Exception as e:
+        print(f"Error processing image query: {e}")
+        return jsonify({"error": f"Failed to process query: {str(e)}"}), 500
 
 @app.route("/enhanced-search", methods=["POST"])
 def enhanced_search():
