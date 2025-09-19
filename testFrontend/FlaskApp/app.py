@@ -14,6 +14,7 @@ from aiFeatures.python.speech_to_text import speech_to_text
 from aiFeatures.python.text_to_speech import say, stop_speech
 from aiFeatures.python.web_scraping import web_response
 from aiFeatures.python.rag_pipeline import index_pdfs, retrieve_answer
+from aiFeatures.python.auth_utils import auth_manager, require_auth, get_current_user
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Add a secret key for sessions
@@ -51,17 +52,153 @@ def chunk_text(text, max_length=150):
 def home():
     return render_template("index.html")
 
+# Auth callback route for Supabase redirects
+@app.route("/auth/callback")
+def auth_callback():
+    return render_template("auth_callback.html")
+
+# Authentication Routes
+@app.route("/auth/signup", methods=["POST"])
+def signup():
+    """Handle user registration"""
+    data = request.json if request.json else {}
+    email = data.get("email")
+    password = data.get("password")
+    name = data.get("name", "")
+    
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+    
+    # Additional user data
+    user_data = {
+        "name": name,
+        "created_at": "now()"
+    }
+    
+    result = auth_manager.sign_up(email, password, user_data)
+    
+    if result["success"]:
+        return jsonify({
+            "success": True,
+            "message": result["message"],
+            "user": {
+                "id": result["user"].id,
+                "email": result["user"].email,
+                "email_confirmed_at": result["user"].email_confirmed_at
+            }
+        })
+    else:
+        return jsonify({"error": result["error"]}), 400
+
+@app.route("/auth/login", methods=["POST"])
+def login():
+    """Handle user login"""
+    data = request.json if request.json else {}
+    email = data.get("email")
+    password = data.get("password")
+    
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+    
+    result = auth_manager.sign_in(email, password)
+    
+    if result["success"]:
+        # Store session info
+        session["user_id"] = result["user"].id
+        session["access_token"] = result["access_token"]
+        
+        return jsonify({
+            "success": True,
+            "message": "Login successful",
+            "user": {
+                "id": result["user"].id,
+                "email": result["user"].email,
+                "name": result["user"].user_metadata.get("name", ""),
+                "email_confirmed_at": result["user"].email_confirmed_at
+            },
+            "access_token": result["access_token"],
+            "refresh_token": result["refresh_token"]
+        })
+    else:
+        return jsonify({"error": result["error"]}), 401
+
+@app.route("/auth/logout", methods=["POST"])
+def logout():
+    """Handle user logout"""
+    access_token = session.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+    
+    result = auth_manager.sign_out(access_token)
+    
+    # Clear session
+    session.clear()
+    
+    return jsonify({
+        "success": True,
+        "message": "Logout successful"
+    })
+
+@app.route("/auth/verify", methods=["GET"])
+def verify_auth():
+    """Verify if user is authenticated"""
+    access_token = session.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+    
+    if not access_token:
+        return jsonify({"authenticated": False, "error": "No token provided"}), 401
+    
+    result = auth_manager.get_user(access_token)
+    
+    if result["success"]:
+        return jsonify({
+            "authenticated": True,
+            "user": {
+                "id": result["user"].id,
+                "email": result["user"].email,
+                "name": result["user"].user_metadata.get("name", ""),
+                "email_confirmed_at": result["user"].email_confirmed_at
+            }
+        })
+    else:
+        return jsonify({"authenticated": False, "error": result["error"]}), 401
+
+@app.route("/auth/refresh", methods=["POST"])
+def refresh_token():
+    """Refresh authentication token"""
+    data = request.json if request.json else {}
+    refresh_token = data.get("refresh_token")
+    
+    if not refresh_token:
+        return jsonify({"error": "Refresh token is required"}), 400
+    
+    result = auth_manager.refresh_session(refresh_token)
+    
+    if result["success"]:
+        # Update session
+        session["access_token"] = result["access_token"]
+        
+        return jsonify({
+            "success": True,
+            "access_token": result["access_token"],
+            "refresh_token": result["refresh_token"]
+        })
+    else:
+        return jsonify({"error": result["error"]}), 401
+
 @app.route("/clear-session", methods=["POST"])
+@require_auth
 def clear_session():
     """Clears the current RAG session and resets the vector store."""
     global vector_store, session_manager
     
     try:
+        # Get current user
+        current_user = get_current_user()
+        user_session_id = f"user_{current_user.id}" if current_user else default_session_id
+        
         # Reset the vector store
         vector_store = None
         
         # Clear the session for this user
-        session_manager.delete_session(default_session_id)
+        session_manager.delete_session(user_session_id)
         
         return jsonify({"success": True, "message": "Session cleared successfully"})
     
@@ -70,6 +207,7 @@ def clear_session():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route("/initialize-rag", methods=["POST"])
+@require_auth
 def initialize_rag():
     """Handles indexing PDFs from uploaded files or a folder path."""
     global vector_store
@@ -108,11 +246,16 @@ def initialize_rag():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route("/ask", methods=["POST"])
+@require_auth
 def ask():
     """Handles text input and returns AI response with chat history management."""
-    global vector_store, session_manager, default_session_id
+    global vector_store, session_manager
     data = request.json if request.json else {}
     user_query = data.get("query")
+    
+    # Get current user
+    current_user = get_current_user()
+    user_session_id = f"user_{current_user.id}" if current_user else default_session_id
 
     if not user_query:
         return jsonify({"error": "No input provided"}), 400
@@ -124,7 +267,7 @@ def ask():
         # Generate response based on whether retrieval was performed
         if retrieved_info:
             response = generate_response_with_retrieval(
-                default_session_id, 
+                user_session_id, 
                 user_query,
                 retrieved_info, 
                 session_manager
@@ -141,7 +284,7 @@ def ask():
         else:
             scraped_text = web_response(user_query)  # Call web scraping function
             response = generate_response_without_retrieval(
-                default_session_id, 
+                user_session_id, 
                 user_query, 
                 scraped_text,
                 session_manager

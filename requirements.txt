@@ -47,3 +47,7 @@ pyttsx3
 speechrecognition
 pyaudio
 
+# Supabase Authentication
+supabase
+python-jose[cryptography]
+passlib[bcrypt]
